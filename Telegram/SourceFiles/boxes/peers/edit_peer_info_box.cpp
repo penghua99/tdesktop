@@ -127,6 +127,15 @@ constexpr auto kWelcomePreviewLength = 8;
 	return text;
 }
 
+[[nodiscard]] bool PeerHasForwardsRestriction(not_null<PeerData*> peer) {
+	if (const auto chat = peer->asChat()) {
+		return chat->flags() & ChatDataFlag::NoForwards;
+	} else if (const auto channel = peer->asChannel()) {
+		return channel->flags() & ChannelDataFlag::NoForwards;
+	}
+	return !peer->allowsForwarding();
+}
+
 [[nodiscard]] int EnableForumMinMembers(not_null<PeerData*> peer) {
 	return peer->session().appConfig().get<int>(
 		u"forum_upgrade_participants_min"_q,
@@ -1104,7 +1113,7 @@ void Controller::fillPrivacyTypeButton() {
 		.usernamesOrder = (_peer->isChannel()
 			? _peer->asChannel()->usernames()
 			: std::vector<QString>()),
-		.noForwards = !_peer->allowsForwarding(),
+		.noForwards = PeerHasForwardsRestriction(_peer),
 		.joinToWrite = (_peer->isMegagroup()
 			&& _peer->asChannel()->joinToWrite()),
 		.requestToJoin = (_peer->isChannel()
@@ -2986,7 +2995,7 @@ void Controller::saveSignatures() {
 
 void Controller::saveForwards() {
 	if (!_savingData.noForwards
-		|| *_savingData.noForwards != _peer->allowsForwarding()) {
+		|| *_savingData.noForwards != PeerHasForwardsRestriction(_peer)) {
 		return continueSave();
 	}
 	using Flag = MTPmessages_ToggleNoForwards::Flag;
